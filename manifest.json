@@ -1,16 +1,20 @@
 {
-    "manifest_version": 3,
-    "name": "Chrome AI Demo",
-    "version": "1.0",
-    "description": "Test Chrome's built-in Gemini Nano AI Prompt API",
-    "permissions": ["activeTab", "scripting"],
-    "action": {
-      "default_popup": "popup.html",
-      "default_icon": {
-        "16": "icon.png",
-        "48": "icon.png",
-        "128": "icon.png"
-      }
+  "manifest_version": 3,
+  "name": "Simplify AI",
+  "version": "1.0",
+  "description": "Simplify or summarize any webpage content.",
+  "permissions": ["activeTab", "scripting"],
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "action": {
+    "default_popup": "Popup/popup.html",
+    "default_icon": "icons/icon.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content.js"]
     }
-  }
-  
+  ]
+}
