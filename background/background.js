@@ -1,7 +1,8 @@
-// background/background.js - UPDATED FOR CHROME 143
+// background/background.js - LESS AGGRESSIVE FILTERING
 chrome.runtime.onMessage.addListener(async (message, sender) => {
     if (message.action === "process_text") {
         console.log('🎯 Processing text with AI...');
+        console.log('📊 Content length received:', message.data?.length);
         
         try {
             let simplified;
@@ -23,7 +24,8 @@ chrome.runtime.onMessage.addListener(async (message, sender) => {
             }
         } catch (error) {
             console.error('❌ Processing failed:', error);
-            const fallbackSummary = createImprovedSummary(message.data);
+            // More lenient fallback
+            const fallbackSummary = createLenientSummary(message.data);
             if (sender.tab?.id) {
                 chrome.tabs.sendMessage(sender.tab.id, {
                     action: "display_result",
@@ -84,46 +86,51 @@ async function summarizeWithGeminiNano(text) {
 }
 
 // Enhanced text analysis fallback
+// MORE LENIENT summary function
 function createImprovedSummary(text) {
     try {
-        const cleanText = text.replace(/\s+/g, ' ').trim();
+        console.log('📝 Creating summary from text length:', text.length);
         
-        // Remove common web page noise
-        const filteredText = cleanText
-            .split('\n')
-            .filter(line => {
-                const lower = line.toLowerCase().trim();
-                return !lower.includes('cookie') &&
-                       !lower.includes('privacy') &&
-                       !lower.includes('menu') &&
-                       !lower.includes('navigation') &&
-                       !lower.includes('login') &&
-                       !lower.includes('sign up') &&
-                       line.trim().length > 20;
-            })
-            .join(' ');
-        
-        // Extract meaningful sentences
-        const sentences = filteredText.split(/[.!?]+/)
-            .filter(sentence => {
-                const trimmed = sentence.trim();
-                const words = trimmed.split(' ');
-                return words.length > 4 && 
-                       words.length < 25 &&
-                       trimmed.length > 20 &&
-                       !trimmed.match(/[<>{}]/) && // Filter HTML/Code
-                       !trimmed.match(/^(http|www|@)/); // Filter URLs
-            })
-            .slice(0, 6)
-            .map(s => s.trim() + '.');
-        
-        if (sentences.length === 0) {
-            return "I couldn't extract meaningful content to summarize. The page might contain mostly navigation, code, or unstructured content.";
+        if (!text || text.length < 50) {
+            return "The page doesn't contain enough text content to summarize. Try a content-rich page like a news article or blog post.";
         }
         
-        return `📊 Smart Summary:\n\n${sentences.join(' ')}\n\n💡 Using enhanced text analysis`;
+        // LESS aggressive filtering
+        const sentences = text.split(/[.!?]+/)
+            .filter(sentence => {
+                const trimmed = sentence.trim();
+                const wordCount = trimmed.split(/\s+/).length;
+                
+                // More lenient criteria
+                return trimmed.length > 10 &&      // Shorter sentences OK
+                       wordCount >= 3 &&           // Only 3+ words
+                       trimmed.length < 500 &&     // Longer sentences OK
+                       !trimmed.match(/^\s*$/);    // Not just whitespace
+            })
+            .slice(0, 8) // Take more sentences
+            .map(s => s.trim() + '.');
+        
+        console.log('📊 Sentences found:', sentences.length);
+        
+        if (sentences.length === 0) {
+            return createLenientSummary(text);
+        }
+        
+        return `📖 Page Summary:\n\n${sentences.join(' ')}\n\n✨ Summary created from page content`;
         
     } catch (error) {
-        return "Error processing content. Please try a different page.";
+        console.error('Summary error:', error);
+        return createLenientSummary(text);
     }
+}
+
+// ULTRA LENIENT fallback
+function createLenientSummary(text) {
+    if (!text) return "No content found on this page.";
+    
+    // Just take the first reasonable chunk of text
+    const reasonableText = text.substring(0, 1000);
+    const firstParagraph = reasonableText.split('\n\n')[0] || reasonableText.split('.')[0] + '.';
+    
+    return `📄 Content Preview:\n\n${firstParagraph.substring(0, 500)}...\n\n🔍 This page contains content that may not be ideal for summarization.`;
 }
