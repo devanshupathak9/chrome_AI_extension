@@ -1,24 +1,47 @@
+// popup.js - WITH DEBUGGING
 document.getElementById("simplifyBtn").addEventListener("click", async () => {
-  // Get the active tab in the current window
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  chrome.tabs.sendMessage(tab.id, { action: "extract_content" });
-});
-
-
-document.getElementById("askBtn").addEventListener("click", async () => {
-  const input = document.getElementById("input").value.trim();
-  const outputEl = document.getElementById("output");
-
-  if (!input) {
-    outputEl.textContent = "Please enter a question.";
-    return;
-  }
-  outputEl.textContent = "Thinking...";
   try {
-    outputEl.textContent = "Generating your response...";
-  }
-  catch(error){
-    console.error(error);
-    outputEl.textContent = "Internal Error!!:)";
+    console.log("Simplify button clicked");
+    
+    // Get the active tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    console.log("Active tab found:", tab.id);
+    
+    if (!tab) {
+      console.error("No active tab found");
+      return;
+    }
+    
+    // Send message to content script
+    chrome.tabs.sendMessage(tab.id, { action: "extract_content" }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("Error sending message:", chrome.runtime.lastError);
+        // Content script might not be loaded, try injecting it
+        injectContentScript(tab.id);
+      } else {
+        console.log("Message sent successfully");
+      }
+    });
+    
+  } catch (error) {
+    console.error("Popup error:", error);
   }
 });
+
+// Fallback: Inject content script if not loaded
+function injectContentScript(tabId) {
+  console.log("Attempting to inject content script...");
+  
+  chrome.scripting.executeScript({
+    target: { tabId: tabId },
+    files: ['content/content.js']
+  })
+  .then(() => {
+    console.log("Content script injected successfully");
+    // Retry sending the message
+    chrome.tabs.sendMessage(tabId, { action: "extract_content" });
+  })
+  .catch(error => {
+    console.error("Failed to inject content script:", error);
+  });
+}

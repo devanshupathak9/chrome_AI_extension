@@ -1,43 +1,108 @@
-// content.js
+// content.js - SIMPLIFIED WORKING VERSION
+console.log("Content script loaded successfully");
 
-// Listen for messages from popup.js
+// Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.action === "extract_content") {
-      console.log("Extracting page content...");
+  console.log("Message received in content script:", message);
   
-      // Extract visible text from the page
-      const textContent = document.body.innerText;
-  
-      // Send it to background for processing
-      chrome.runtime.sendMessage({ action: "process_text", data: textContent });
-    }
-  
-    return true; // Keeps the channel open for async response if needed
-  });
-  
-  // Listen for processed text from background.js
-  chrome.runtime.onMessage.addListener((message) => {
-    if (message.action === "display_result") {
-      // Create or update a floating box on the page
-      let existingBox = document.getElementById("simplify-box");
-      if (!existingBox) {
-        existingBox = document.createElement("div");
-        existingBox.id = "simplify-box";
-        existingBox.style.cssText = `
-          position: fixed;
-          top: 10px;
-          right: 10px;
-          background: #f9f9f9;
-          color: #333;
-          padding: 12px;
-          border-radius: 8px;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-          max-width: 300px;
-          z-index: 999999;
-        `;
-        document.body.appendChild(existingBox);
+  if (message.action === "extract_content") {
+    console.log("Extracting page content...");
+    
+    // Simple text extraction
+    const textContent = document.body.innerText || "No text content found";
+    console.log("Text extracted, length:", textContent.length);
+    
+    // Send to background for processing
+    chrome.runtime.sendMessage({ 
+      action: "process_text", 
+      data: textContent.substring(0, 5000) // Limit length
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error("Error sending to background:", chrome.runtime.lastError);
+      } else {
+        console.log("Message sent to background successfully");
       }
-      existingBox.textContent = message.data;
-    }
-  });
+    });
+  }
   
+  return true;
+});
+
+// Listen for processed results
+chrome.runtime.onMessage.addListener((message) => {
+  console.log("Result message received:", message.action);
+  
+  if (message.action === "display_result") {
+    displayResult(message.data);
+  } else if (message.action === "display_error") {
+    displayError(message.data);
+  }
+});
+
+function displayResult(content) {
+  console.log("Displaying result");
+  
+  // Remove any existing result box
+  const existingBox = document.getElementById("simplify-result");
+  if (existingBox) existingBox.remove();
+  
+  // Create result box
+  const resultBox = document.createElement("div");
+  resultBox.id = "simplify-result";
+  resultBox.innerHTML = `
+    <div style="
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: white;
+      color: #333;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      max-width: 400px;
+      max-height: 500px;
+      overflow-y: auto;
+      z-index: 10000;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      border: 2px solid #4285f4;
+    ">
+      <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 10px;">
+        <h3 style="margin: 0; color: #4285f4;">🧠 Simplified Content</h3>
+        <button onclick="this.parentElement.parentElement.remove()" style="
+          background: none;
+          border: none;
+          font-size: 20px;
+          cursor: pointer;
+          color: #666;
+          margin-left: auto;
+        ">×</button>
+      </div>
+      <div style="white-space: pre-wrap;">${content}</div>
+    </div>
+  `;
+  
+  document.body.appendChild(resultBox);
+}
+
+function displayError(message) {
+  const errorBox = document.createElement("div");
+  errorBox.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #ff4444;
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    max-width: 300px;
+    z-index: 10000;
+    font-family: Arial, sans-serif;
+  `;
+  errorBox.textContent = `❌ ${message}`;
+  document.body.appendChild(errorBox);
+  
+  setTimeout(() => errorBox.remove(), 5000);
+}
