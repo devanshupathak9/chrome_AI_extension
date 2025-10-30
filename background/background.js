@@ -1,136 +1,115 @@
-// background/background.js - LESS AGGRESSIVE FILTERING
+// background/background.js - LENIENT SUMMARIZATION
 chrome.runtime.onMessage.addListener(async (message, sender) => {
     if (message.action === "process_text") {
-        console.log('🎯 Processing text with AI...');
-        console.log('📊 Content length received:', message.data?.length);
+        console.log('🎯 Processing text for summarization...');
+        console.log('📊 Content length:', message.data?.length);
         
         try {
-            let simplified;
+            let summary;
             
-            // Try Gemini Nano first
             if (await isGeminiNanoAvailable()) {
-                console.log('🤖 Using Gemini Nano...');
-                simplified = await summarizeWithGeminiNano(message.data);
+                console.log('🤖 Using Gemini Nano for AI summarization...');
+                summary = await summarizeWithGeminiNano(message.data);
             } else {
-                console.log('📊 Using enhanced text analysis...');
-                simplified = createImprovedSummary(message.data);
+                console.log('📊 Using smart text summarization...');
+                summary = createSmartSummary(message.data);
             }
             
             if (sender.tab?.id) {
                 chrome.tabs.sendMessage(sender.tab.id, {
                     action: "display_result",
-                    data: simplified,
+                    data: summary,
                 });
             }
         } catch (error) {
-            console.error('❌ Processing failed:', error);
+            console.error('❌ Summarization failed:', error);
             // More lenient fallback
-            const fallbackSummary = createLenientSummary(message.data);
+            const fallback = createLenientSummary(message.data);
             if (sender.tab?.id) {
                 chrome.tabs.sendMessage(sender.tab.id, {
                     action: "display_result",
-                    data: fallbackSummary,
+                    data: fallback,
                 });
             }
         }
     }
 });
 
-// Check if Gemini Nano is available
 async function isGeminiNanoAvailable() {
     try {
-        // Check for the modern API
-        if (typeof ai === 'undefined') {
-            console.log('❌ ai object not found');
-            return false;
-        }
-        
-        // Check for language model availability
+        if (typeof ai === 'undefined') return false;
         const available = await ai.languageModel.available();
         console.log('🔍 Gemini Nano available:', available);
         return available;
-        
     } catch (error) {
         console.log('❌ Gemini Nano check failed:', error);
         return false;
     }
 }
 
-// Modern Gemini Nano implementation
 async function summarizeWithGeminiNano(text) {
     try {
-        console.log('🚀 Starting Gemini Nano summarization...');
-        
-        // Create model with modern API
         const model = await ai.languageModel.create({
-            systemPrompt: "You are a helpful AI assistant that creates clear, concise summaries. Focus on extracting the main ideas and key information from the text. Keep the summary easy to understand and well-structured."
+            systemPrompt: "You are a helpful AI assistant that creates concise, easy-to-understand summaries. Always provide a brief overview in your own words, focusing on the main topic and key points. Keep it under 150 words."
         });
         
-        // Prepare text (limit size)
-        const cleanText = text.substring(0, 15000);
-        const prompt = `Please summarize the following text in a clear, concise way. Focus on the main points and key information:\n\n${cleanText}`;
+        const prompt = `Please provide a brief, conversational summary of the following content:\n\n${text.substring(0, 15000)}`;
         
-        console.log('📝 Sending prompt to Gemini Nano...');
-        
-        // Generate response
         const response = await model.prompt(prompt);
-        
-        console.log('✅ Gemini Nano response received');
-        
-        return `🤖 AI-Powered Summary (Gemini Nano):\n\n${response}`;
+        return `🤖 AI Summary:\n\n${response.trim()}`;
         
     } catch (error) {
-        console.error('❌ Gemini Nano summarization failed:', error);
+        console.error('❌ Gemini Nano failed:', error);
         throw error;
     }
 }
 
-// Enhanced text analysis fallback
-// MORE LENIENT summary function
-function createImprovedSummary(text) {
-    try {
-        console.log('📝 Creating summary from text length:', text.length);
-        
-        if (!text || text.length < 50) {
-            return "The page doesn't contain enough text content to summarize. Try a content-rich page like a news article or blog post.";
-        }
-        
-        // LESS aggressive filtering
-        const sentences = text.split(/[.!?]+/)
-            .filter(sentence => {
-                const trimmed = sentence.trim();
-                const wordCount = trimmed.split(/\s+/).length;
-                
-                // More lenient criteria
-                return trimmed.length > 10 &&      // Shorter sentences OK
-                       wordCount >= 3 &&           // Only 3+ words
-                       trimmed.length < 500 &&     // Longer sentences OK
-                       !trimmed.match(/^\s*$/);    // Not just whitespace
-            })
-            .slice(0, 8) // Take more sentences
-            .map(s => s.trim() + '.');
-        
-        console.log('📊 Sentences found:', sentences.length);
-        
-        if (sentences.length === 0) {
-            return createLenientSummary(text);
-        }
-        
-        return `📖 Page Summary:\n\n${sentences.join(' ')}\n\n✨ Summary created from page content`;
-        
-    } catch (error) {
-        console.error('Summary error:', error);
+function createSmartSummary(text) {
+    if (!text || text.length < 50) {
+        return "The page doesn't contain enough readable content to summarize. Try a content-rich page like a news article or blog post.";
+    }
+    
+    // Simple but effective summarization
+    const sentences = text.split(/[.!?]+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 20 && s.length < 200)
+        .filter(s => !isNavigationSentence(s))
+        .slice(0, 5)
+        .map(s => s + '.');
+    
+    if (sentences.length === 0) {
         return createLenientSummary(text);
     }
+    
+    const summary = sentences.join(' ');
+    return `📖 Summary:\n\n${summary}\n\n✨ Created using text analysis`;
 }
 
-// ULTRA LENIENT fallback
+function isNavigationSentence(sentence) {
+    const lower = sentence.toLowerCase();
+    const navWords = [
+        'home', 'about', 'contact', 'login', 'sign up', 'search',
+        'menu', 'navigation', 'jump to', 'skip to', 'cookie',
+        'privacy', 'terms', 'policy', 'follow', 'share', 'like',
+        'subscribe', 'advertisement', 'sponsored'
+    ];
+    
+    return navWords.some(word => lower.includes(word));
+}
+
 function createLenientSummary(text) {
     if (!text) return "No content found on this page.";
     
-    // Just take the first reasonable chunk of text
-    const reasonableText = text.substring(0, 1000);
-    const firstParagraph = reasonableText.split('\n\n')[0] || reasonableText.split('.')[0] + '.';
+    // Just take the first substantial part of the text
+    const firstSubstantial = text.split('\n\n')
+        .find(paragraph => paragraph.length > 30 && paragraph.length < 500) ||
+        text.substring(0, 300);
     
-    return `📄 Content Preview:\n\n${firstParagraph.substring(0, 500)}...\n\n🔍 This page contains content that may not be ideal for summarization.`;
+    return `📄 Content Overview:\n\n${firstSubstantial}...\n\n💡 Showing page content`;
+}
+
+function createFallbackSummary(content) {
+    // Find the first meaningful chunk of text
+    const meaningfulChunk = content.substring(0, 200).split('.')[0] + '.';
+    return `This page appears to be about: ${meaningfulChunk}`;
 }

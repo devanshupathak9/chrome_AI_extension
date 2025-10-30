@@ -1,4 +1,4 @@
-// content.js - IMPROVED CONTENT EXTRACTION VERSION
+// content/content.js - BALANCED CONTENT EXTRACTION
 console.log("🚀 Content script loaded successfully");
 
 // Listen for messages from popup
@@ -17,15 +17,14 @@ function extractAndSendContent() {
   try {
     console.log("🔍 Extracting page content...");
     
-    // IMPROVED: Extract content from main content areas
+    // Get the main content with balanced filtering
     const pageContent = extractMainContent();
     console.log("📊 Extracted content length:", pageContent.length);
     
-    if (pageContent.length < 100) {
-      console.log("⚠️ Very little content extracted, using fallback");
-      // Fallback to body text if main content extraction fails
-      const fallbackContent = document.body?.innerText || "No content found";
-      sendToBackground(fallbackContent);
+    if (pageContent.length < 50) {
+      console.log("⚠️ Little content extracted, using body text");
+      const bodyContent = document.body?.innerText || "";
+      sendToBackground(bodyContent);
     } else {
       sendToBackground(pageContent);
     }
@@ -33,80 +32,173 @@ function extractAndSendContent() {
   } catch (error) {
     console.error("❌ Content extraction error:", error);
     // Fallback to simple body text
-    const fallbackContent = document.body?.innerText || "Error extracting content";
-    sendToBackground(fallbackContent);
+    const bodyContent = document.body?.innerText || "";
+    sendToBackground(bodyContent);
   }
 }
 
 function extractMainContent() {
-  // Try to find main content areas first
-  const mainContentSelectors = [
+  // Strategy 1: Try to find main content areas
+  const mainContent = findMainContentElement();
+  if (mainContent) return cleanText(mainContent);
+  
+  // Strategy 2: Extract from common content selectors
+  const contentFromSelectors = extractFromContentSelectors();
+  if (contentFromSelectors.length > 100) return contentFromSelectors;
+  
+  // Strategy 3: Smart body text extraction (less aggressive)
+  return extractSmartBodyText();
+}
+
+function findMainContentElement() {
+  const mainSelectors = [
     'main',
     'article',
     '[role="main"]',
-    '.content',
     '.main-content',
+    '#main-content',
+    '.content',
     '#content',
-    '.post',
-    '.story',
-    '.article',
-    '.page-content',
     '.entry-content',
-    '.post-content'
+    '.post-content',
+    '.article-content',
+    '.story-content',
+    '.page-content'
   ];
   
-  for (const selector of mainContentSelectors) {
+  for (const selector of mainSelectors) {
     const element = document.querySelector(selector);
-    if (element) {
+    if (element && hasSubstantialText(element)) {
       console.log("✅ Found main content with selector:", selector);
-      return cleanText(element.innerText);
+      return element.innerText;
+    }
+  }
+  return null;
+}
+
+function extractFromContentSelectors() {
+  const contentSelectors = [
+    'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'section'
+  ];
+  
+  let content = '';
+  contentSelectors.forEach(selector => {
+    const elements = document.querySelectorAll(selector);
+    elements.forEach(element => {
+      // Only take elements that are likely content (not navigation)
+      if (isLikelyContent(element) && hasSubstantialText(element)) {
+        content += element.innerText + '\n\n';
+      }
+    });
+  });
+  
+  return cleanText(content);
+}
+
+function extractSmartBodyText() {
+  const body = document.body;
+  if (!body) return "";
+  
+  // Get all text content and filter intelligently
+  const allText = body.innerText;
+  const lines = allText.split('\n')
+    .map(line => line.trim())
+    .filter(line => {
+      // Keep lines that are likely content
+      return isLikelyContentLine(line);
+    });
+  
+  return lines.join('\n\n');
+}
+
+function isLikelyContent(element) {
+  // Check if element is likely to be content (not navigation)
+  if (!element) return false;
+  
+  const tagName = element.tagName.toLowerCase();
+  const className = element.className.toLowerCase();
+  const id = element.id.toLowerCase();
+  
+  // Exclude obvious navigation elements
+  const excludedSelectors = [
+    'nav', 'header', 'footer', 'aside', 'menu',
+    '.nav', '.navbar', '.navigation', '.menu',
+    '.header', '.footer', '.sidebar'
+  ];
+  
+  for (const selector of excludedSelectors) {
+    if (element.closest(selector)) {
+      return false;
     }
   }
   
-  // Fallback: Try to find the largest text block
-  console.log("🔍 No main content found, searching for largest text block...");
-  return findLargestTextBlock();
-}
-
-function findLargestTextBlock() {
-  // Get all paragraph-like elements
-  const contentElements = [
-    ...document.querySelectorAll('p, div, section, h1, h2, h3, h4, h5, h6, li, span')
+  // Exclude by class/id patterns
+  const excludedPatterns = [
+    /nav/, /menu/, /header/, /footer/, /sidebar/, /advertisement/, /ad-/
   ];
   
-  // Filter elements with substantial text content
-  const elementsWithContent = contentElements.filter(el => {
-    const text = el.innerText.trim();
-    return text.length > 50 && 
-           !text.match(/^(http|www|@)/) && // Not URLs
-           !el.closest('nav, header, footer, aside, menu, .nav, .header, .footer') && // Not in navigation
-           isVisible(el);
-  });
+  if (excludedPatterns.some(pattern => 
+    pattern.test(className) || pattern.test(id))) {
+    return false;
+  }
   
-  // Sort by text length and take the largest ones
-  elementsWithContent.sort((a, b) => b.innerText.length - a.innerText.length);
-  
-  // Combine top 5 largest elements
-  const mainContent = elementsWithContent.slice(0, 5)
-    .map(el => el.innerText)
-    .join('\n\n');
-  
-  return cleanText(mainContent || document.body.innerText);
+  return true;
 }
 
-function isVisible(element) {
-  const style = window.getComputedStyle(element);
-  return style.display !== 'none' && 
-         style.visibility !== 'hidden' && 
-         element.offsetWidth > 0 && 
-         element.offsetHeight > 0;
+function isLikelyContentLine(line) {
+  if (!line || line.length < 20) return false;
+  
+  const lower = line.toLowerCase();
+  
+  // Exclude navigation and UI text
+  const excludePatterns = [
+    /^home$/i,
+    /^about$/i,
+    /^contact$/i,
+    /^login$/i,
+    /^sign up$/i,
+    /^search$/i,
+    /^menu$/i,
+    /^navigation$/i,
+    /^skip to content$/i,
+    /^jump to navigation$/i,
+    /^cookie policy$/i,
+    /^privacy policy$/i,
+    /^terms of service$/i,
+    /^follow us$/i,
+    /^share this$/i,
+    /^related articles$/i,
+    /^you may also like$/i,
+    /^advertisement$/i,
+    /^sponsored$/i
+  ];
+  
+  if (excludePatterns.some(pattern => pattern.test(line))) {
+    return false;
+  }
+  
+  // Exclude very short lines or lines that are mostly symbols
+  if (line.length < 25 && !line.match(/[a-zA-Z]/)) {
+    return false;
+  }
+  
+  // Include lines that have substantial text content
+  const wordCount = line.split(/\s+/).length;
+  return wordCount >= 4;
+}
+
+function hasSubstantialText(element) {
+  if (!element) return false;
+  const text = element.innerText || "";
+  const clean = text.trim();
+  return clean.length > 50 && clean.split(/\s+/).length >= 10;
 }
 
 function cleanText(text) {
+  if (!text) return "";
   return text
-    .replace(/\n\s*\n/g, '\n\n') // Clean up multiple newlines
-    .replace(/\t/g, ' ')         // Replace tabs with spaces
-    .replace(/\s+/g, ' ')        // Collapse multiple spaces
+    .replace(/\s+/g, ' ')
+    .replace(/\n\s*\n/g, '\n\n')
     .trim();
 }
 
@@ -115,11 +207,12 @@ function sendToBackground(content) {
   showLoadingIndicator();
   
   console.log("📤 Sending content to background, length:", content.length);
+  console.log("📝 First 200 chars:", content.substring(0, 200));
   
   // Send to background for processing
   chrome.runtime.sendMessage({ 
     action: "process_text", 
-    data: content.substring(0, 20000) // Increased limit
+    data: content.substring(0, 20000)
   }, (response) => {
     if (chrome.runtime.lastError) {
       console.error("❌ Error sending to background:", chrome.runtime.lastError);
@@ -129,10 +222,11 @@ function sendToBackground(content) {
   });
 }
 
+// ... KEEP ALL YOUR EXISTING UI FUNCTIONS (they remain the same)
+
 function showLoadingIndicator() {
   console.log("⏳ Showing loading indicator...");
   
-  // Remove existing
   const existing = document.getElementById("simplify-loading");
   if (existing) existing.remove();
   
@@ -185,7 +279,6 @@ chrome.runtime.onMessage.addListener((message) => {
 function displayResult(content) {
   console.log("🖥️ Displaying result box");
   
-  // Remove existing result
   const existing = document.getElementById("simplify-result");
   if (existing) existing.remove();
   
@@ -263,14 +356,3 @@ function displayError(message) {
     console.log("🗑️ Error box removed");
   }, 5000);
 }
-
-// Temporary debug function - uncomment to test content extraction
-/*
-function debugContentExtraction() {
-  const mainContent = extractMainContent();
-  console.log('=== DEBUG CONTENT EXTRACTION ===');
-  console.log('Extracted content length:', mainContent.length);
-  console.log('First 500 chars:', mainContent.substring(0, 500));
-  console.log('=== END DEBUG ===');
-}
-*/
