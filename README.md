@@ -1,8 +1,11 @@
-# 🧠 Chrome AI Extension
+# 🧠 Simplify.AI — Chrome AI Extension  
 
-A Chrome Extension that uses **Chrome’s built-in Gemini Nano AI APIs** (Prompt, Summarizer, Rewriter, Proofreader, and more) to enhance your productivity — summarize, rewrite, and proofread text instantly right inside your browser.
+**Simplify.AI** is a Chrome Extension powered by **Chrome’s built-in Gemini Nano AI APIs** (Prompt, Summarizer, Rewriter, Proofreader, and more).  
+It helps you **instantly understand any webpage** — summarize content, highlight insights, and simplify information with just one click or a shortcut.
 
 ---
+
+# 🧠 About Chrome Extension
 ## 🧩 Extension Core Components
 
 - **`manifest.json`**  
