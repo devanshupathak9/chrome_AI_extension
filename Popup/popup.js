@@ -1,47 +1,58 @@
-// popup.js - WITH DEBUGGING
-document.getElementById("simplifyBtn").addEventListener("click", async () => {
-  try {
-    console.log("Simplify button clicked");
+// Popup/popup.js - FIXED MESSAGE HANDLING
+document.addEventListener('DOMContentLoaded', function() {
+    const simplifyBtn = document.getElementById('simplifyBtn');
     
-    // Get the active tab
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    console.log("Active tab found:", tab.id);
-    
-    if (!tab) {
-      console.error("No active tab found");
-      return;
-    }
-    
-    // Send message to content script
-    chrome.tabs.sendMessage(tab.id, { action: "extract_content" }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Error sending message:", chrome.runtime.lastError);
-        // Content script might not be loaded, try injecting it
-        injectContentScript(tab.id);
-      } else {
-        console.log("Message sent successfully");
-      }
+    simplifyBtn.addEventListener('click', async () => {
+        console.log('🔘 Simplify button clicked');
+        
+        try {
+            const [tab] = await chrome.tabs.query({ 
+                active: true, 
+                currentWindow: true 
+            });
+            
+            if (!tab) {
+                console.error('❌ No active tab found');
+                return;
+            }
+            
+            console.log('📋 Active tab:', tab.id, tab.url);
+            
+            // First, try to send message to existing content script
+            chrome.tabs.sendMessage(tab.id, { action: "extract_content" })
+                .then(() => {
+                    console.log('✅ Message sent successfully to existing content script');
+                })
+                .catch(async (error) => {
+                    console.log('⚠️ Content script not ready, injecting...', error.message);
+                    
+                    try {
+                        // Inject the content script
+                        await chrome.scripting.executeScript({
+                            target: { tabId: tab.id },
+                            files: ['content/content.js']
+                        });
+                        
+                        console.log('✅ Content script injected successfully');
+                        
+                        // Wait a moment for the content script to load, then send message
+                        setTimeout(() => {
+                            chrome.tabs.sendMessage(tab.id, { action: "extract_content" })
+                                .then(() => {
+                                    console.log('✅ Message sent after injection');
+                                })
+                                .catch((retryError) => {
+                                    console.error('❌ Failed to send message after injection:', retryError);
+                                });
+                        }, 100);
+                        
+                    } catch (injectError) {
+                        console.error('❌ Failed to inject content script:', injectError);
+                    }
+                });
+            
+        } catch (error) {
+            console.error('❌ Popup error:', error);
+        }
     });
-    
-  } catch (error) {
-    console.error("Popup error:", error);
-  }
 });
-
-// Fallback: Inject content script if not loaded
-function injectContentScript(tabId) {
-  console.log("Attempting to inject content script...");
-  
-  chrome.scripting.executeScript({
-    target: { tabId: tabId },
-    files: ['content/content.js']
-  })
-  .then(() => {
-    console.log("Content script injected successfully");
-    // Retry sending the message
-    chrome.tabs.sendMessage(tabId, { action: "extract_content" });
-  })
-  .catch(error => {
-    console.error("Failed to inject content script:", error);
-  });
-}
