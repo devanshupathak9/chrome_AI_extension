@@ -1,7 +1,5 @@
-// content/content.js - BALANCED CONTENT EXTRACTION
 console.log("🚀 Content script loaded successfully");
 
-// Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("📩 Content script received message:", message);
 
@@ -17,7 +15,6 @@ function extractAndSendContent() {
   try {
     console.log("🔍 Extracting page content...");
     
-    // Get the main content with balanced filtering
     const pageContent = extractMainContent();
     console.log("📊 Extracted content length:", pageContent.length);
     
