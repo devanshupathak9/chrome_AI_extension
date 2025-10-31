@@ -1,7 +1,5 @@
-// content.js - IMPROVED CONTENT EXTRACTION VERSION
 console.log("🚀 Content script loaded successfully");
 
-// Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log("📩 Content script received message:", message);
 
@@ -9,15 +7,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("🎯 Starting content extraction...");
     extractAndSendContent();
   }
-
-  return true;
 });
 
 function extractAndSendContent() {
   try {
     console.log("🔍 Extracting page content...");
-    
-    // IMPROVED: Extract content from main content areas
+
     const pageContent = extractMainContent();
     console.log("📊 Extracted content length:", pageContent.length);
     
@@ -111,7 +106,6 @@ function cleanText(text) {
 }
 
 function sendToBackground(content) {
-  // Show loading indicator
   showLoadingIndicator();
   
   console.log("📤 Sending content to background, length:", content.length);
@@ -131,8 +125,7 @@ function sendToBackground(content) {
 
 function showLoadingIndicator() {
   console.log("⏳ Showing loading indicator...");
-  
-  // Remove existing
+
   const existing = document.getElementById("simplify-loading");
   if (existing) existing.remove();
   
