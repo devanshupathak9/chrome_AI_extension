@@ -10,15 +10,16 @@
   "action": {
     "default_popup": "Popup/popup.html",
     "default_icon": {
-      "16": "icons/icon.png",
-      "48": "icons/icon.png",
-      "128": "icons/icon.png"
+      "16": "icons/icon2.png",
+      "48": "icons/icon2.png",
+      "128": "icons/icon2.png"
     }
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/content.js"]
+      "js": ["content/content.js"],
+      "type": "module"
     }
   ]
 }

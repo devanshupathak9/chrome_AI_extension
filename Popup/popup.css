@@ -1,28 +1,27 @@
 h3 {
-  text-align: center;
+text-align: center;
 }
 body {
-    font-family: Arial, sans-serif;
-    width: 300px;
-    padding: 10px;
-  }
-  textarea {
-    width: 100%;
-    padding: 5px;
-    margin-bottom: 10px;
-    resize: none;
-  }
-  button {
-    width: 100%;
-    padding: 5px;
-    background-color: #4285f4;
-    border: none;
-    color: white;
-    cursor: pointer;
-    margin-top: 2px;
-    margin-bottom: 2px;
-  }
-  button:hover {
-    background-color: #357ae8;
-  }
-  
+  font-family: Arial, sans-serif;
+  width: 300px;
+  padding: 10px;
+}
+textarea {
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 10px;
+  resize: none;
+}
+button {
+  width: 100%;
+  padding: 5px;
+  background-color: #4285f4;
+  border: none;
+  color: white;
+  cursor: pointer;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+button:hover {
+  background-color: #357ae8;
+}
