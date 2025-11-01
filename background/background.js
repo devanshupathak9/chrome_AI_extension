@@ -62,9 +62,10 @@ async function isGeminiNanoAvailable() {
           });
         }
       });
-  
+
+      console.log("SENDING PROMPT!!");
       // Now prompt the model with the text from the webpage
-      const prompt = `Please summarize the following text concisely: ${text}`;
+      const prompt = `This the web content extracted from a  page. pLEASE SUMMARIZE THIS AND PRESENT THIS IS A MEANING FUL MANNER FOR OTHER TO UNDERSTAND IT SIMPLY: ${text}`;
       const summary = await session.prompt(prompt);
   
       return summary;
