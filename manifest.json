@@ -18,8 +18,23 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/content.js"],
-      "type": "module"
+      "js": ["content/content.js"]
     }
-  ]
+  ],
+  "commands": {
+    "simplify-content": {
+      "suggested_key": {
+        "default": "Alt+S",
+        "mac": "Alt+S"
+      },
+      "description": "Simplify page content"
+    },
+    "simplify-content-s": {
+      "suggested_key": {
+        "default": "Ctrl+S",
+        "mac": "Command+S"
+      },
+      "description": "Simplify page content with S key"
+    }
+  }
 }

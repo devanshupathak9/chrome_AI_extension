@@ -1,3 +1,65 @@
+// background/background.js
+
+// Handle keyboard shortcuts
+chrome.commands.onCommand.addListener((command) => {
+  console.log(`🎯 Keyboard command received: ${command}`);
+  
+  if (command === 'simplify-content' || command === 'simplify-content-s') {
+    triggerContentExtraction();
+  }
+});
+
+// Handle popup button clicks
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "simplify_page") {
+    console.log("🎯 Simplify button clicked from popup");
+    triggerContentExtraction();
+  }
+});
+
+function triggerContentExtraction() {
+  // Get the active tab
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs[0]) {
+      const activeTab = tabs[0];
+      
+      // First, inject content script if not already injected
+      chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        files: ['content/content.js']
+      }).then(() => {
+        console.log("✅ Content script injected");
+        
+        // Send message to content script to extract content
+        chrome.tabs.sendMessage(activeTab.id, {
+          action: "extract_content"
+        }).catch(error => {
+          console.error("❌ Error sending message to content script:", error);
+          // Fallback: try alternative approach
+          fallbackExtraction(activeTab.id);
+        });
+        
+      }).catch(error => {
+        console.error("❌ Error injecting content script:", error);
+        fallbackExtraction(activeTab.id);
+      });
+    }
+  });
+}
+
+function fallbackExtraction(tabId) {
+  // Alternative approach if content script injection fails
+  chrome.tabs.sendMessage(tabId, {
+    action: "extract_content"
+  }).then(() => {
+    console.log("✅ Fallback extraction triggered");
+  }).catch(error => {
+    console.error("❌ Fallback also failed:", error);
+    // Final fallback - reload the tab to ensure content script loads
+    chrome.tabs.reload(tabId);
+  });
+}
+
 chrome.runtime.onMessage.addListener(async (message, sender) => {
   if (message.action === "process_text") {
     console.log('🎯 Processing text for summarization...');
