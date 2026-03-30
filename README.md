@@ -1,44 +1,127 @@
-# 🧠 Simplify.AI — Chrome AI Extension  
+# Simplify.AI — Chrome Extension
 
-**Simplify.AI** is a Chrome Extension powered by **Chrome’s built-in Gemini Nano AI APIs** (Prompt, Summarizer, Rewriter, Proofreader, and more).  
-It helps you **instantly understand any webpage** — summarize content, highlight insights, and simplify information with just one click or a shortcut.
-
----
-
-# 🧠 About Chrome Extension
-## 🧩 Extension Core Components
-
-- **`manifest.json`**  
-  The mandatory configuration file for every Chrome Extension.  
-  It defines metadata such as the extension’s **name**, **version**, and **description**, as well as its **permissions**, **entry points**, and **scripts**.
-
-- **Content Script (`content.js`)**  
-  A JavaScript file that runs in the context of a web page.  
-  It can interact with the page’s DOM and is useful when you want to **analyze, rewrite, or summarize** webpage text using APIs like the **Rewriter API** or **Summarizer API**.
-
-- **Background Script (`background.js`)**  
-  Runs in the background (as a service worker in Manifest V3).  
-  It handles long-running tasks, message passing, and context menu actions — such as **triggering AI actions**, **listening for user events**, or **managing extension state**.
-
-- **Popup HTML (`popup.html`)**  
-  The small window that appears when you click the extension’s icon in Chrome.  
-  It provides the **user interface** — like buttons, input boxes, or output areas — to interact with AI models.  
-  No backend or external API calls are required if you’re using **Chrome’s built-in Gemini Nano APIs**.
+**Simplify.AI** is a Chrome Extension powered by Chrome's built-in **Gemini Nano** AI.
+It lets you instantly summarize and understand any webpage — no external API keys, no data leaving your device.
 
 ---
 
-## ⚙️ Loading Your Chrome Extension
+## Features
 
-1. **Open Google Chrome.**  
-2. In the address bar, type:  
-```bash
-chrome://extensions/
+- **On-device AI** — uses Chrome's built-in Gemini Nano (no server, no API key)
+- **Smart content extraction** — automatically finds the main article or body text
+- **Graceful fallback** — works even when Gemini Nano is unavailable, using an intelligent text-analysis summary
+- **Keyboard shortcut** — trigger with `Alt+S` (Windows/Linux) or `Cmd+Shift+S` (Mac)
+- **Clean overlay** — results appear in a non-intrusive panel on the page
+- **Manifest V3** — uses the latest Chrome extension standard with a service worker
+
+---
+
+## How It Works
+
 ```
-3. **Turn on Developer Mode** (toggle switch in the top-right corner).  
-4. Click **Load unpacked.**  
-5. Select your project folder (e.g. `chrome-ai-extension/`).  
-6. You should now see your extension listed.  
-7. **Pin it** to the toolbar for quick access.  
-8. Click the extension icon to open and test it.
+User clicks button / presses shortcut
+           │
+           ▼
+    popup.js / background.js
+           │
+           ▼  chrome.tabs.sendMessage
+    content.js  ← extract page text
+           │
+           ▼  chrome.runtime.sendMessage
+    background.js ← AI processing
+      ┌────┴────┐
+      │         │
+  Gemini   Fallback text
+   Nano    analysis
+      └────┬────┘
+           ▼  chrome.tabs.sendMessage
+    content.js  ← display result overlay
+```
 
 ---
+
+## Project Structure
+
+```
+SimplifyAI/
+├── manifest.json           Extension configuration (MV3)
+├── Popup/
+│   ├── popup.html          Extension popup UI
+│   ├── popup.css           Popup styles
+│   └── popup.js            Popup interaction logic
+├── background/
+│   └── background.js       Service worker — AI processing & command handling
+├── content/
+│   └── content.js          Page content extraction & result overlay
+└── icons/
+    └── icon2.png           Extension icon
+```
+
+---
+
+## Core Files
+
+### `manifest.json`
+Defines the extension's metadata, permissions, entry points, icons, and keyboard shortcuts.
+Uses **Manifest V3** — the current Chrome extension standard.
+
+### `content/content.js`
+Injected into every webpage. Responsible for:
+- Extracting the main text content from the page DOM
+- Showing the loading indicator and result overlay on the page
+- Relaying messages between the popup/background and the page
+
+### `background/background.js`
+Runs as a **service worker**. Responsible for:
+- Handling the `Alt+S` keyboard shortcut via `chrome.commands.onCommand`
+- Checking whether Gemini Nano is available on this device
+- Running the AI summarization (or falling back to text analysis)
+- Sending results back to the content script
+
+### `Popup/popup.html` + `popup.js` + `popup.css`
+The small panel that opens when you click the extension icon.
+Contains the **Simplify This Page** button and a status indicator.
+
+---
+
+## Requirements
+
+| Requirement | Details |
+|---|---|
+| Chrome version | 119+ (for Gemini Nano support) |
+| Gemini Nano | Optional — fallback works without it |
+| Permissions used | `activeTab`, `scripting`, `tabs` |
+
+To use the full Gemini Nano AI, enable **Chrome's built-in AI** at:
+```
+chrome://flags/#optimization-guide-on-device-model
+```
+Set to **Enabled BypassPerfRequirement**, then relaunch Chrome.
+
+---
+
+## Installation (Developer Mode)
+
+1. Open Chrome and navigate to `chrome://extensions/`
+2. Enable **Developer Mode** (toggle in the top-right corner)
+3. Click **Load unpacked**
+4. Select the `SimplifyAI/` project folder
+5. The extension will appear in your toolbar — pin it for quick access
+
+---
+
+## Usage
+
+| Action | How |
+|---|---|
+| Summarize current page | Click the extension icon → **Simplify This Page** |
+| Keyboard shortcut | `Alt+S` (Windows/Linux) · `Cmd+Shift+S` (Mac) |
+| Dismiss result | Click the **×** button on the overlay panel |
+
+---
+
+## Privacy
+
+- No data is sent to any external server
+- All AI processing happens **on-device** via Gemini Nano
+- When Gemini Nano is unavailable, summarization is done entirely in JavaScript with no network calls

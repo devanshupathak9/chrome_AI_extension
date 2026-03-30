@@ -2,12 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Chrome AI Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simplify.AI</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <h3>Simplify</h3>
-  <button id="simplifyBtn">Simplify Page</button>
+  <div class="header">
+    <div class="logo">
+      <span class="logo-icon">🧠</span>
+      <span class="logo-text">Simplify.AI</span>
+    </div>
+    <span class="version">v1.0</span>
+  </div>
+
+  <div class="content">
+    <p class="tagline">Instantly understand any webpage with on-device AI.</p>
+    <button id="simplifyBtn" class="btn-primary">
+      <span class="btn-icon">⚡</span>
+      Simplify This Page
+    </button>
+    <div id="status" class="status hidden"></div>
+  </div>
+
+  <div class="footer">
+    <span class="shortcut-hint">Shortcut: <kbd>Alt+S</kbd></span>
+  </div>
 
   <script src="popup.js"></script>
 </body>

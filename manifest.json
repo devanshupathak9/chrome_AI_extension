@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Simplify.AI",
-  "version": "1.0",
-  "description": "Simplify or summarize any webpage content.",
+  "version": "1.0.0",
+  "description": "Instantly understand any webpage. Summarize content with Chrome's built-in Gemini Nano AI — no external APIs, no data sent.",
   "permissions": ["activeTab", "scripting", "tabs"],
   "background": {
     "service_worker": "background/background.js"
   },
   "action": {
     "default_popup": "Popup/popup.html",
+    "default_title": "Simplify.AI",
     "default_icon": {
       "16": "icons/icon2.png",
       "48": "icons/icon2.png",
@@ -25,9 +26,9 @@
     "summarize_page": {
       "suggested_key": {
         "default": "Alt+S",
-        "mac": "Command+S"
+        "mac": "Command+Shift+S"
       },
-      "description": "Summarize the current page instantly"
+      "description": "Simplify the current page instantly"
     }
   }
 }

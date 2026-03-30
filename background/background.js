@@ -1,114 +1,102 @@
-chrome.runtime.onMessage.addListener(async (message, sender) => {
-    if (message.action === "process_text") {
-        console.log('🎯 Processing text with AI...');
-        console.log('📊 Content length received:', message.data?.length);
-        
-        try {
-            let simplified;
-            if (await isGeminiNanoAvailable()) {
-                console.log('🤖 Using Gemini Nano...');
-                simplified = await summarizeWithGeminiNano(message.data);
-            } else {
-                console.log('📊 Using enhanced text analysis...');
-                simplified = createImprovedSummary(message.data);
-            }
-            
-            if (sender.tab?.id) {
-                chrome.tabs.sendMessage(sender.tab.id, {
-                    action: "display_result",
-                    data: simplified,
-                });
-            }
-        } catch (error) {
-            console.error('❌ Processing failed:', error);
-            const fallbackSummary = createLenientSummary(message.data);
-            if (sender.tab?.id) {
-                chrome.tabs.sendMessage(sender.tab.id, {
-                    action: "display_result",
-                    data: fallbackSummary,
-                });
-            }
-        }
+// Handle the keyboard shortcut defined in manifest.json
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command !== "summarize_page") return;
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return;
+
+  chrome.tabs.sendMessage(tab.id, { action: "extract_content" }, () => {
+    if (chrome.runtime.lastError) {
+      // Content script not loaded — inject it then retry
+      chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content/content.js"] })
+        .then(() => chrome.tabs.sendMessage(tab.id, { action: "extract_content" }))
+        .catch(() => {});
     }
+  });
 });
 
+// Handle content processing requests from content script
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message.action === "process_text") {
+    processText(message.data, sender.tab?.id);
+  }
+});
+
+async function processText(text, tabId) {
+  if (!tabId) return;
+
+  try {
+    const result = (await isGeminiNanoAvailable())
+      ? await summarizeWithGeminiNano(text)
+      : createFallbackSummary(text);
+
+    chrome.tabs.sendMessage(tabId, { action: "display_result", data: result });
+  } catch (error) {
+    console.error("Processing error:", error);
+    // On any failure, show the best fallback we can produce
+    chrome.tabs.sendMessage(tabId, {
+      action: "display_result",
+      data: createFallbackSummary(text)
+    });
+  }
+}
+
 async function isGeminiNanoAvailable() {
-    try {
-        if (typeof ai === 'undefined') {
-            console.log('❌ ai object not found');
-            return false;
-        }
-        
-        const available = await ai.languageModel.available();
-        console.log('🔍 Gemini Nano available:', available);
-        return available;
-        
-    } catch (error) {
-        console.log('❌ Gemini Nano check failed:', error);
-        return false;
+  try {
+    if (typeof ai === "undefined" || !ai.languageModel) return false;
+
+    // Newer Chrome AI API (availability)
+    if (typeof ai.languageModel.availability === "function") {
+      const status = await ai.languageModel.availability();
+      return status === "available" || status === "downloadable";
     }
+
+    // Older Chrome AI API (capabilities)
+    if (typeof ai.languageModel.capabilities === "function") {
+      const caps = await ai.languageModel.capabilities();
+      return caps.available === "readily" || caps.available === "after-download";
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
 }
+
 async function summarizeWithGeminiNano(text) {
-    try {
-        console.log('🚀 Starting Gemini Nano summarization...');
-        const model = await ai.languageModel.create({
-            systemPrompt: "You are a helpful AI assistant that creates clear, concise summaries. Focus on extracting the main ideas and key information from the text. Keep the summary easy to understand and well-structured."
-        });
-        const cleanText = text.substring(0, 15000);
-        
-        const prompt = `Please summarize the following text in a clear, concise way. Focus on the main points and key information:\n\n${cleanText}`;
-        console.log('📝 Sending prompt to Gemini Nano...');
-        
-        const response = await model.prompt(prompt);
-        console.log('✅ Gemini Nano response received');
-        return `🤖 AI-Powered Summary (Gemini Nano):\n\n${response}`;
-    } catch (error) {
-        console.error('❌ Gemini Nano summarization failed:', error);
-        throw error;
-    }
+  const session = await ai.languageModel.create({
+    systemPrompt:
+      "You are a concise content summarizer. Given webpage text, produce a clear, well-structured summary. " +
+      "Focus on the main ideas and key points. Write in plain language without markdown headers. " +
+      "Use short paragraphs or bullet points to make it easy to scan."
+  });
+
+  try {
+    const prompt =
+      "Summarize the following webpage content clearly and concisely. Highlight the key points:\n\n" +
+      text.substring(0, 15000);
+    const response = await session.prompt(prompt);
+    return `AI Summary (Gemini Nano)\n\n${response}`;
+  } finally {
+    // Always destroy the session to free memory
+    session.destroy();
+  }
 }
 
-function createImprovedSummary(text) {
-    try {
-        console.log('📝 Creating summary from text length:', text.length);
-        if (!text || text.length < 50) {
-            return "The page doesn't contain enough text content to summarize. Try a content-rich page like a news article or blog post.";
-        }
-        
-        const sentences = text.split(/[.!?]+/)
-            .filter(sentence => {
-                const trimmed = sentence.trim();
-                const wordCount = trimmed.split(/\s+/).length;
-                
-                // More lenient criteria
-                return trimmed.length > 10 &&      // Shorter sentences OK
-                       wordCount >= 3 &&           // Only 3+ words
-                       trimmed.length < 500 &&     // Longer sentences OK
-                       !trimmed.match(/^\s*$/);    // Not just whitespace
-            })
-            .slice(0, 8) // Take more sentences
-            .map(s => s.trim() + '.');
-        
-        console.log('📊 Sentences found:', sentences.length);
-        
-        if (sentences.length === 0) {
-            return createLenientSummary(text);
-        }
-        
-        return `📖 Page Summary:\n\n${sentences.join(' ')}\n\n✨ Summary created from page content`;
-        
-    } catch (error) {
-        console.error('Summary error:', error);
-        return createLenientSummary(text);
-    }
-}
+function createFallbackSummary(text) {
+  if (!text || text.trim().length < 50) {
+    return "This page does not contain enough readable text to summarize.";
+  }
 
-function createLenientSummary(text) {
-    if (!text) return "No content found on this page.";
-    
-    // Just take the first reasonable chunk of text
-    const reasonableText = text.substring(0, 1000);
-    const firstParagraph = reasonableText.split('\n\n')[0] || reasonableText.split('.')[0] + '.';
-    
-    return `📄 Content Preview:\n\n${firstParagraph.substring(0, 500)}...\n\n🔍 This page contains content that may not be ideal for summarization.`;
+  // Split on sentence boundaries, filter noise
+  const sentences = text
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 25 && s.split(/\s+/).length >= 4 && s.length < 400);
+
+  if (sentences.length === 0) {
+    return `Content Preview\n\n${text.substring(0, 500).trim()}…`;
+  }
+
+  return `Page Summary\n\n${sentences.slice(0, 7).join(" ")}`;
 }
